@@ -1,8 +1,11 @@
 import string
 import os
 
-class Constants:
+class Constant:
+    NAME = "Breeze"
     IGNORE_LETTERS = [char for char in string.punctuation] + ["'s"]
     
-class Filepaths:
-    TAGS_AND_WORDS = os.join("data", "tags_and_words.pickle")
+class Filepath:
+    TAGS_AND_WORDS = os.path.join("data", "tags_and_words.pickle")
+    MODEL = os.path.join("models", f"{Constant.NAME}.h5")
+    INTENTS = os.path.join("data", "intents.json")
