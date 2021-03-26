@@ -1,0 +1,7 @@
+gTTS
+tensorflow-gpu
+nltk
+numpy
+playsound
+scikit-learn
+SpeechRecognition
