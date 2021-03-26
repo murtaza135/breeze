@@ -1,5 +1,5 @@
-from breeze import Breeze
-from constants import Filepath
+from chatbot import Chatbot
 
-brz = Breeze(Filepath.INTENTS)
-brz.train()
+bot = Chatbot()
+bot.train("data/intents.json")
+bot.save("models")
