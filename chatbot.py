@@ -201,30 +201,20 @@ class Chatbot:
     def respond(self, message: str) -> None:
         tag = self._predict_tag(message)
         
-        if tag:
-            reply_or_act = self._get_reply_or_act(tag)
+        if tag is not None:
+            reply_or_act = self._get_reply_or_act_key(tag)
             if reply_or_act == "reply":
                 reply = self._select_reply(tag)
                 print(reply)
             elif reply_or_act == "act":
-                action = self._actions[tag]
-                if action is not None:
-                    action()
-                else:
-                    print("Sorry, I could not perform that action")
+                self._act(tag)
             else:
-                action = self._actions[tag]
                 reply = self._select_reply(tag)
-                
-                if action is not None:
-                    action()
-                    print(reply)
-                else:
-                    print("Sorry, I could not perform that action")
+                self._act(tag, reply)
         else:
             reply = self._select_no_understanding_reply()
             print(reply)
-    
+            
     def _predict_tag(self, message: str) -> str:
         bag = self._bag_of_words(message)
         result = self.model.predict(bag.reshape(1,-1))[0]
@@ -245,7 +235,7 @@ class Chatbot:
         return word_list
     
     
-    def _get_reply_or_act(self, tag: str):
+    def _get_reply_or_act_key(self, tag: str) -> str:
         for intent in self._intents:
             if intent["tag"] == tag:
                 return intent["reply_or_act"]
@@ -266,6 +256,15 @@ class Chatbot:
             return random.choice(self.no_understanding_messages)
         else:
             return "Sorry, I could not understand you"
+        
+    def _act(self, tag: str, message: str = None) -> None:
+        action = self._actions[tag]
+        if action:
+            if message is not None:
+                print(message)
+            action()
+        else:
+            print("Sorry, I could not perform that action")
         
     def map_function_to_tag(self, tag, callback, *args, **kwargs) -> None:
         if tag not in self._actions:
