@@ -34,7 +34,7 @@ class Chatbot:
         self._words = []
         self._tags_to_words = []
         self._model = None
-        self._error_threshold = error_threshold
+        self._error_threshold = self.set_error_threshold(error_threshold)
         
         self.no_understanding_messages = [
             "Sorry, I could not understand you",
@@ -51,9 +51,9 @@ class Chatbot:
     def add_no_understanding_message(self, message: str) -> None:
         self.no_understanding_messages.append(message)
         
-    def set_error_threshold(self, value: float):
-        if 0 <= value <= 1:
-            self._error_threshold = value
+    def set_error_threshold(self, error_threshold: float):
+        if 0 <= error_threshold <= 1:
+            self._error_threshold = error_threshold
         else:
             raise ValueError("The threshold value must lie between 0 and 1, inclusive")
         
