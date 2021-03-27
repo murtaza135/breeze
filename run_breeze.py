@@ -11,6 +11,5 @@ from chatbot import Chatbot
 # print(bot._intents)
 
 bot = Chatbot.load_model("models/Test")
-print(bot.name)
-print(bot.model)
-print(bot._intents)
+bot.greet()
+bot.prompt_and_respond()

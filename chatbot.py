@@ -25,17 +25,40 @@ nltk.download('wordnet', quiet=True)
 class Chatbot:
     IGNORE_LETTERS = [char for char in string.punctuation] + ["'s"]
     
+    
     def __init__(self, name: str = "Chatbot") -> None:
         self.name = name
         self._intents = None
+        # self._intents_func_mapping = {}
         self._tags = set()
         self._words = []
         self._tags_to_words = []
         self._model = None
+        self._error_threshold = 0.7
+        
+        self.no_understanding_messages = [
+            "Sorry, I could not understand you",
+            "Could you say that again please?"
+        ]
         
     @property
     def model(self) -> Sequential:
         return self._model
+    
+    def get_tags(self) -> list:
+        return self._tags.copy()
+    
+    def add_no_understanding_message(self, message: str) -> None:
+        self.no_understanding_messages.append(message)
+        
+    def set_error_threshold(self, value: float):
+        if 0 <= value <= 1:
+            self._error_threshold = value
+        else:
+            raise ValueError("The threshold value must lie between 0 and 1, inclusive")
+        
+    def get_error_threshold(self) -> float:
+        return self._error_threshold
     
     
     def train(self, intents_file: str,
@@ -156,3 +179,43 @@ class Chatbot:
         chatbot._tags_to_words = tags_to_words
         chatbot._model = model
         return chatbot
+    
+    
+    def greet(self) -> None:
+        print(f"Hi! I am {self.name}!")
+        
+    def prompt_and_respond(self) -> None:
+        message = input("")
+        self.respond(message)
+    
+    def respond(self, message: str) -> None:
+        tag = self._predict_tag(message)
+        reply = self._select_reply(tag)
+        print(reply)
+    
+    def _predict_tag(self, message: str) -> str:
+        bag = self._bag_of_words(message)
+        result = self.model.predict(bag.reshape(1,-1))[0]
+        if result.max() > self._error_threshold:
+            return self._tags[np.argmax(result)]
+        return None
+    
+    def _bag_of_words(self, message: str) -> np.array:
+        word_list = self._clean_message(message)
+        bag_for_word_list = [1 if word in word_list else 0 for word in self._words]
+        return np.array(bag_for_word_list)
+    
+    def _clean_message(self, message: str) -> list:
+        lemmatizer = WordNetLemmatizer()
+        word_list = nltk.word_tokenize(message)
+        word_list = [lemmatizer.lemmatize(word.lower()) for word in word_list 
+                    if word not in Chatbot.IGNORE_LETTERS]
+        return word_list
+    
+    def _select_reply(self, tag: str) -> str:
+        if tag is None:
+            return random.choice(self.no_understanding_messages)
+        else:
+            for intent in self._intents:
+                if intent["tag"] == tag:
+                    return random.choice(intent["responses"])
