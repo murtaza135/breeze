@@ -39,7 +39,7 @@ class Chatbot:
         self._tags_to_words = []
         self.error_threshold = error_threshold
         
-        # TODO somehow itnegrate these messages into an external file
+        # TODO somehow integrate these messages into an external file
         # preferably the intents.json file
         self.no_understanding_messages = [
             "Sorry, I could not understand you",

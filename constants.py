@@ -1,9 +1,7 @@
-import string
 import os
 
 class Constant:
     NAME = "Breeze"
-    IGNORE_LETTERS = [char for char in string.punctuation] + ["'s"]
     
 class Filepath:
     TAGS_AND_WORDS = os.path.join("data", "tags_and_words.pickle")

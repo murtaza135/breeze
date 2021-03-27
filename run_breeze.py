@@ -20,13 +20,13 @@ import webbrowser
 # print(bot.model)
 # print(bot._intents)
 
-def youtube():
-    url = "https://www.youtube.com/"
-    webbrowser.get().open(url)
+# def youtube():
+#     url = "https://www.youtube.com/"
+#     webbrowser.get().open(url)
 
-bot = Chatbot.load_chatbot("models/Test")
-bot.map_function_to_tag("youtube", youtube)
-bot.speak("Hello, how can I help you?")
-for i in range(3):
-    bot.prompt_and_respond()
-    print("====================================================")
+# bot = Chatbot.load_chatbot("models/Test")
+# bot.map_function_to_tag("youtube", youtube)
+# bot.speak("Hello, how can I help you?")
+# for i in range(3):
+#     bot.prompt_and_respond()
+#     print("====================================================")
