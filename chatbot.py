@@ -16,7 +16,6 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout
 from tensorflow.keras.optimizers import SGD, Optimizer
 from tensorflow.keras.models import load_model
-from tensorflow.keras.callbacks import History
 from exceptions import NoModelTrainedError
 
 nltk.download('punkt', quiet=True)
@@ -28,16 +27,15 @@ class Chatbot:
     
     def __init__(self, name: str = "Chatbot") -> None:
         self.name = name
-        self.intents = None
-        self.tags = set()
-        self.words = []
-        self.tags_to_words = []
-        self._untrained_model = None
-        self._trained_model = None
+        self._intents = None
+        self._tags = set()
+        self._words = []
+        self._tags_to_words = []
+        self._model = None
         
     @property
-    def model(self) -> History:
-        return self._trained_model
+    def model(self) -> Sequential:
+        return self._model
     
     
     def train(self, intents_file: str,
@@ -49,32 +47,29 @@ class Chatbot:
         self._train_model(X_train, y_train, optimizer, loss, epochs, batch_size)
     
     def _load_intents(self, intents_file: str) -> None:
-        if os.path.exists(intents_file):
-            with open(intents_file, "r") as f:
-                self.intents = json.load(f)["intents"]
-        else:
-            raise FileNotFoundError(f"Could not find '{intents_file}'")
+        with open(intents_file, "r") as f:
+            self._intents = json.load(f)["intents"]
         
     def _extract_words_and_tags(self) -> None:
         lemmatizer = WordNetLemmatizer()
-        for intent in self.intents:
-            self.tags.add(intent["tag"])
+        for intent in self._intents:
+            self._tags.add(intent["tag"])
             for pattern in intent["patterns"]:
                 word_list = nltk.word_tokenize(pattern)
                 word_list = [lemmatizer.lemmatize(word.lower()) for word in word_list
                             if word not in Chatbot.IGNORE_LETTERS]
-                self.words.extend(word_list)
-                self.tags_to_words.append((intent["tag"], word_list))
+                self._words.extend(word_list)
+                self._tags_to_words.append((intent["tag"], word_list))
                 
-        self.words = sorted(set(self.words))
-        self.tags = sorted(self.tags)
+        self._words = sorted(set(self._words))
+        self._tags = sorted(self._tags)
         
     def _create_training_data(self) -> tuple:
         train = []
-        for tag, word_list in self.tags_to_words:
-            bag_for_word_list = [1 if word in word_list else 0 for word in self.words]
-            bag_for_tag = [0] * len(self.tags)
-            bag_for_tag[self.tags.index(tag)] = 1
+        for tag, word_list in self._tags_to_words:
+            bag_for_word_list = [1 if word in word_list else 0 for word in self._words]
+            bag_for_tag = [0] * len(self._tags)
+            bag_for_tag[self._tags.index(tag)] = 1
             train.append([bag_for_tag, bag_for_word_list])
             
         random.shuffle(train)
@@ -86,45 +81,78 @@ class Chatbot:
     def _train_model(self, X_train: np.array, y_train: np.array,
                      optimizer: Optimizer, loss: str, epochs: int, 
                      batch_size: int):
-        self._untrained_model = Sequential()
-        self._untrained_model.add(Dense(128, input_shape=(len(self.words),), activation="relu"))
-        self._untrained_model.add(Dropout(0.5))
-        self._untrained_model.add(Dense(64, activation="relu"))
-        self._untrained_model.add(Dropout(0.5))
-        self._untrained_model.add(Dense(len(self.tags), activation="softmax"))
+        self._model = Sequential()
+        self._model.add(Dense(128, input_shape=(len(self._words),), activation="relu"))
+        self._model.add(Dropout(0.5))
+        self._model.add(Dense(64, activation="relu"))
+        self._model.add(Dropout(0.5))
+        self._model.add(Dense(len(self._tags), activation="softmax"))
 
-        self._untrained_model.compile(
+        self._model.compile(
             loss=loss,
             optimizer=optimizer,
             metrics=["accuracy"]
         )
 
-        self._trained_model = self._untrained_model.fit(
-            X_train, y_train, epochs=epochs, batch_size=batch_size, verbose=1
-        )
-        
+        self._model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size, verbose=1)
         print("===== Fininished training model =====")
         
         
-    def save(self, dir_path: str, name: str = None) -> None:
-        if self._untrained_model is None:
+    def save(self, path: str, name: str = None) -> None:
+        if self._model is None:
             raise NoModelTrainedError("You must train the chatbot using an intents file before saving it")
         
-        if os.path.exists(dir_path) and os.path.isdir(dir_path):
+        if os.path.exists(path) and os.path.isdir(path):
             name = self.name if name is None else name
-            path = os.path.join(dir_path, name)
+            new_path = os.path.join(path, name)
             
-            model_path = os.path.join(path, "model.h5")
-            self._untrained_model.save(model_path, self._trained_model)
+            model_path = os.path.join(new_path, "model.h5")
+            self._model.save(model_path)
             
-            words_and_tags_path = os.path.join(path, "words_and_tags.pickle")
+            words_and_tags_path = os.path.join(new_path, "words_and_tags.pickle")
             with open(words_and_tags_path, "wb") as f:
-                pickle.dump((self.tags, self.words, self.tags_to_words), f)
+                pickle.dump((self._tags, self._words, self._tags_to_words), f)
                 
-            intents_path = os.path.join(path, "intents.pickle")
+            intents_path = os.path.join(new_path, "intents.pickle")
             with open(intents_path, "wb") as f:
-                pickle.dump(self.intents, f)
+                pickle.dump(self._intents, f)
+        else:
+            raise NotADirectoryError("Could not save chatbot model")
                 
     
-    def load(self, dir_path: str) -> None:
-        pass
+    def load(self, path: str) -> None:
+        model_path = os.path.join(path, "model.h5")
+        self._model = load_model(model_path)
+        
+        words_and_tags_path = os.path.join(path, "words_and_tags.pickle")
+        with open(words_and_tags_path, "rb") as f:
+            self._tags, self._words, self._tags_to_words = pickle.load(f)
+            
+        intents_path = os.path.join(path, "intents.pickle")
+        with open(intents_path, "rb") as f:
+            self._intents = pickle.load(f)
+            
+        name = os.path.basename(path)
+        self.name = name
+    
+    @classmethod
+    def load_model(cls, path: str):
+        model_path = os.path.join(path, "model.h5")
+        model = load_model(model_path)
+        
+        words_and_tags_path = os.path.join(path, "words_and_tags.pickle")
+        with open(words_and_tags_path, "rb") as f:
+            tags, words, tags_to_words = pickle.load(f)
+            
+        intents_path = os.path.join(path, "intents.pickle")
+        with open(intents_path, "rb") as f:
+            intents = pickle.load(f)
+        
+        name = os.path.basename(path)
+        chatbot = cls(name)
+        chatbot._intents = intents
+        chatbot._tags = tags
+        chatbot._words = words
+        chatbot._tags_to_words = tags_to_words
+        chatbot._model = model
+        return chatbot
