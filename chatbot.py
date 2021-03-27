@@ -26,7 +26,7 @@ class Chatbot:
     IGNORE_LETTERS = [char for char in string.punctuation] + ["'s"]
     
     
-    def __init__(self, name: str = "Chatbot") -> None:
+    def __init__(self, name: str = "Chatbot", error_threshold: float = 0.7) -> None:
         self.name = name
         self._intents = None
         # self._intents_func_mapping = {}
@@ -34,7 +34,7 @@ class Chatbot:
         self._words = []
         self._tags_to_words = []
         self._model = None
-        self._error_threshold = 0.7
+        self._error_threshold = error_threshold
         
         self.no_understanding_messages = [
             "Sorry, I could not understand you",
@@ -123,60 +123,47 @@ class Chatbot:
         
     def save(self, path: str, name: str = None) -> None:
         if self._model is None:
-            raise NoModelTrainedError("You must train the chatbot using an intents file before saving it")
+            raise NoModelTrainedError(
+                "You must train the chatbot using an intents file before saving it"
+            )
         
         if os.path.exists(path) and os.path.isdir(path):
             name = self.name if name is None else name
-            new_path = os.path.join(path, name)
+            save_path = os.path.join(path, name)
             
-            model_path = os.path.join(new_path, "model.h5")
+            model_path = os.path.join(save_path, "model.h5")
             self._model.save(model_path)
             
-            words_and_tags_path = os.path.join(new_path, "words_and_tags.pickle")
-            with open(words_and_tags_path, "wb") as f:
-                pickle.dump((self._tags, self._words, self._tags_to_words), f)
-                
-            intents_path = os.path.join(new_path, "intents.pickle")
-            with open(intents_path, "wb") as f:
-                pickle.dump(self._intents, f)
+            # tf model cannot be pickled, therefore we temporarily remove it from the objects state
+            model = self._model
+            self._model = None
+            chatbot_path = os.path.join(save_path, "chatbot.pickle")
+            with open(chatbot_path, "wb") as f:
+                pickle.dump(self, f)
+            self._model = model
         else:
             raise NotADirectoryError("Could not save chatbot model")
                 
     
     def load(self, path: str) -> None:
+        chatbot_path = os.path.join(path, "chatbot.pickle")
+        with open(chatbot_path, "rb") as f:
+            chatbot = pickle.load(f)
+            
+        self.__dict__.update(chatbot.__dict__)
+        
         model_path = os.path.join(path, "model.h5")
         self._model = load_model(model_path)
         
-        words_and_tags_path = os.path.join(path, "words_and_tags.pickle")
-        with open(words_and_tags_path, "rb") as f:
-            self._tags, self._words, self._tags_to_words = pickle.load(f)
-            
-        intents_path = os.path.join(path, "intents.pickle")
-        with open(intents_path, "rb") as f:
-            self._intents = pickle.load(f)
-            
-        name = os.path.basename(path)
-        self.name = name
-    
     @classmethod
-    def load_model(cls, path: str):
+    def load_chatbot(cls, path: str):
+        chatbot_path = os.path.join(path, "chatbot.pickle")
+        with open(chatbot_path, "rb") as f:
+            chatbot = pickle.load(f)
+        
         model_path = os.path.join(path, "model.h5")
         model = load_model(model_path)
         
-        words_and_tags_path = os.path.join(path, "words_and_tags.pickle")
-        with open(words_and_tags_path, "rb") as f:
-            tags, words, tags_to_words = pickle.load(f)
-            
-        intents_path = os.path.join(path, "intents.pickle")
-        with open(intents_path, "rb") as f:
-            intents = pickle.load(f)
-        
-        name = os.path.basename(path)
-        chatbot = cls(name)
-        chatbot._intents = intents
-        chatbot._tags = tags
-        chatbot._words = words
-        chatbot._tags_to_words = tags_to_words
         chatbot._model = model
         return chatbot
     
