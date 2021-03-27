@@ -29,7 +29,6 @@ class Chatbot:
     def __init__(self, name: str = "Chatbot", error_threshold: float = 0.7) -> None:
         self.name = name
         self._intents = None
-        # self._intents_func_mapping = {}
         self._tags = set()
         self._words = []
         self._tags_to_words = []
@@ -75,6 +74,9 @@ class Chatbot:
         
         if not self._intents:
             raise IndexError("There must be atleast one intent")
+        
+        for intent in self._intents:
+            intent["actions"] = []
         
     def _extract_words_and_tags(self) -> None:
         lemmatizer = WordNetLemmatizer()
