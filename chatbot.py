@@ -73,6 +73,9 @@ class Chatbot:
         with open(intents_file, "r") as f:
             self._intents = json.load(f)["intents"]
         
+        if not self._intents:
+            raise IndexError("There must be atleast one intent")
+        
     def _extract_words_and_tags(self) -> None:
         lemmatizer = WordNetLemmatizer()
         for intent in self._intents:
@@ -200,9 +203,11 @@ class Chatbot:
         return word_list
     
     def _select_reply(self, tag: str) -> str:
-        if tag is None:
-            return random.choice(self.no_understanding_messages)
-        else:
+        if tag is not None:
             for intent in self._intents:
                 if intent["tag"] == tag:
                     return random.choice(intent["responses"])
+        elif self.no_understanding_messages:
+            return random.choice(self.no_understanding_messages)
+        else:
+            return "Sorry, I could not understand you"
