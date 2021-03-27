@@ -29,11 +29,12 @@ class Chatbot:
     def __init__(self, name: str = "Chatbot", error_threshold: float = 0.7) -> None:
         self.name = name
         self._intents = None
+        self._actions = {}
         self._tags = set()
         self._words = []
         self._tags_to_words = []
         self._model = None
-        self._error_threshold = self.set_error_threshold(error_threshold)
+        self.error_threshold = error_threshold
         
         self.no_understanding_messages = [
             "Sorry, I could not understand you",
@@ -44,29 +45,37 @@ class Chatbot:
     def model(self) -> Sequential:
         return self._model
     
-    def get_tags(self) -> list:
-        return self._tags.copy()
+    @property
+    def tags(self) -> list:
+        return self._tags
     
-    def add_no_understanding_message(self, message: str) -> None:
-        self.no_understanding_messages.append(message)
-        
-    def set_error_threshold(self, error_threshold: float):
-        if 0 <= error_threshold <= 1:
-            self._error_threshold = error_threshold
+    @property
+    def actions(self) -> dict:
+        return self._actions
+    
+    @property
+    def error_threshold(self) -> float:
+        return self._error_threshold
+    
+    @error_threshold.setter
+    def error_threshold(self, value: float) -> None:
+        if 0 <= value <= 1:
+            self._error_threshold = value
         else:
             raise ValueError("The threshold value must lie between 0 and 1, inclusive")
-        
-    def get_error_threshold(self) -> float:
-        return self._error_threshold
     
     
     def train(self, intents_file: str,
               optimizer: Optimizer = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True),
               loss: str = "categorical_crossentropy", epochs: int = 200, batch_size: int = 5):
-        self._load_intents(intents_file)
-        self._extract_words_and_tags()
+        self.update_data_using_intents_file(intents_file)
         X_train, y_train = self._create_training_data()
         self._train_model(X_train, y_train, optimizer, loss, epochs, batch_size)
+    
+    def update_data_using_intents_file(self, intents_file: str) -> None:
+        self._load_intents(intents_file)
+        self._extract_words_and_tags()
+        self._update_tags_in_actions_mapping()
     
     def _load_intents(self, intents_file: str) -> None:
         with open(intents_file, "r") as f:
@@ -74,9 +83,6 @@ class Chatbot:
         
         if not self._intents:
             raise IndexError("There must be atleast one intent")
-        
-        for intent in self._intents:
-            intent["actions"] = []
         
     def _extract_words_and_tags(self) -> None:
         lemmatizer = WordNetLemmatizer()
@@ -91,6 +97,17 @@ class Chatbot:
                 
         self._words = sorted(set(self._words))
         self._tags = sorted(self._tags)
+        
+    def _update_tags_in_actions_mapping(self) -> None:
+        # add new tags to actions
+        for tag in self._tags:
+            if tag not in self._actions:
+                self._actions[tag] = None
+        
+        # delete old tags in actions which have been removed from intents.json
+        old_tags = [tag for tag in self._actions if tag not in self._tags]
+        for tag in old_tags:
+            del self._actions[tag]
         
     def _create_training_data(self) -> tuple:
         train = []
@@ -155,13 +172,13 @@ class Chatbot:
         with open(chatbot_path, "rb") as f:
             chatbot = pickle.load(f)
             
-        self.__dict__.update(chatbot.__dict__)
+        self.__dict__ = chatbot.__dict__
         
         model_path = os.path.join(path, "model.h5")
         self._model = load_model(model_path)
         
     @classmethod
-    def load_chatbot(cls, path: str):
+    def load_chatbot(cls, path: str) -> "Chatbot":
         chatbot_path = os.path.join(path, "chatbot.pickle")
         with open(chatbot_path, "rb") as f:
             chatbot = pickle.load(f)
@@ -174,16 +191,39 @@ class Chatbot:
     
     
     def greet(self) -> None:
-        print(f"Hi! I am {self.name}!")
-        
+        reply = self._select_reply("greeting")
+        print(reply)
+    
     def prompt_and_respond(self) -> None:
         message = input("")
         self.respond(message)
     
     def respond(self, message: str) -> None:
         tag = self._predict_tag(message)
-        reply = self._select_reply(tag)
-        print(reply)
+        
+        if tag:
+            reply_or_act = self._get_reply_or_act(tag)
+            if reply_or_act == "reply":
+                reply = self._select_reply(tag)
+                print(reply)
+            elif reply_or_act == "act":
+                action = self._actions[tag]
+                if action is not None:
+                    action()
+                else:
+                    print("Sorry, I could not perform that action")
+            else:
+                action = self._actions[tag]
+                reply = self._select_reply(tag)
+                
+                if action is not None:
+                    action()
+                    print(reply)
+                else:
+                    print("Sorry, I could not perform that action")
+        else:
+            reply = self._select_no_understanding_reply()
+            print(reply)
     
     def _predict_tag(self, message: str) -> str:
         bag = self._bag_of_words(message)
@@ -204,12 +244,32 @@ class Chatbot:
                     if word not in Chatbot.IGNORE_LETTERS]
         return word_list
     
+    
+    def _get_reply_or_act(self, tag: str):
+        for intent in self._intents:
+            if intent["tag"] == tag:
+                return intent["reply_or_act"]
+        return None
+    
     def _select_reply(self, tag: str) -> str:
         if tag is not None:
             for intent in self._intents:
                 if intent["tag"] == tag:
-                    return random.choice(intent["responses"])
+                    return random.choice(intent["replies"])
         elif self.no_understanding_messages:
             return random.choice(self.no_understanding_messages)
         else:
             return "Sorry, I could not understand you"
+        
+    def _select_no_understanding_reply(self) -> str:
+        if self.no_understanding_messages:
+            return random.choice(self.no_understanding_messages)
+        else:
+            return "Sorry, I could not understand you"
+        
+    def map_function_to_tag(self, tag, callback, *args, **kwargs) -> None:
+        if tag not in self._actions:
+            raise KeyError(f"{tag} does not exist")
+        
+        self._actions[tag] = lambda: callback(*args, **kwargs)
+    
