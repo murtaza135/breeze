@@ -9,6 +9,7 @@ import string
 import numpy as np
 import speech_recognition as sr
 from gtts import gTTS
+import playsound
 import nltk
 from nltk.stem import WordNetLemmatizer
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -192,12 +193,26 @@ class Chatbot:
     
     def greet(self) -> None:
         reply = self._select_reply("greeting")
-        print(reply)
+        self.speak("Hello, how can I help you?")
     
     def prompt_and_respond(self) -> None:
-        message = input("")
+        message = self.get_user_speech()
+        print(f"Me: {message}")
         self.respond(message)
-    
+        
+    def get_user_speech(self) -> str:
+        recogniser = sr.Recognizer()
+        with sr.Microphone() as source:
+            audio = recogniser.listen(source)
+            speech = ""
+            try:
+                speech = recogniser.recognize_google(audio_data=audio)
+            except sr.UnknownValueError:
+                speech = "Sorry, I did not get that"
+            except sr.RequestError:
+                speech = "Sorry, my speech service is down"
+        return speech
+        
     def respond(self, message: str) -> None:
         tag = self._predict_tag(message)
         
@@ -205,7 +220,7 @@ class Chatbot:
             reply_or_act = self._get_reply_or_act_key(tag)
             if reply_or_act == "reply":
                 reply = self._select_reply(tag)
-                print(reply)
+                self.speak(reply)
             elif reply_or_act == "act":
                 self._act(tag)
             else:
@@ -213,7 +228,7 @@ class Chatbot:
                 self._act(tag, reply)
         else:
             reply = self._select_no_understanding_reply()
-            print(reply)
+            self.speak(reply)
             
     def _predict_tag(self, message: str) -> str:
         bag = self._bag_of_words(message)
@@ -249,26 +264,35 @@ class Chatbot:
         elif self.no_understanding_messages:
             return random.choice(self.no_understanding_messages)
         else:
-            return "Sorry, I could not understand you"
+            return "Sorry, I did not get that"
         
     def _select_no_understanding_reply(self) -> str:
         if self.no_understanding_messages:
             return random.choice(self.no_understanding_messages)
         else:
-            return "Sorry, I could not understand you"
-        
+            return "Sorry, I did not get that"
+    
+    
     def _act(self, tag: str, message: str = None) -> None:
         action = self._actions[tag]
         if action:
             if message is not None:
-                print(message)
+                self.speak(message)
             action()
         else:
-            print("Sorry, I could not perform that action")
+            self.speak("Sorry, I could not perform that action")
+            
+    def speak(self, speech: str) -> None:
+        tts = gTTS(text=speech, lang="en")
+        audio_file_name = os.path.join("voice_recordings", f"chatbot-voice-recording.mp3")
+        tts.save(audio_file_name)
+        print(f"Bot: {speech}") # REMOVE
+        playsound.playsound(audio_file_name)
+        os.remove(audio_file_name)
+        
         
     def map_function_to_tag(self, tag, callback, *args, **kwargs) -> None:
         if tag not in self._actions:
             raise KeyError(f"{tag} does not exist")
         
         self._actions[tag] = lambda: callback(*args, **kwargs)
-    

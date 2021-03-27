@@ -25,4 +25,6 @@ def func(message):
 bot = Chatbot.load_chatbot("models/Test")
 bot.map_function_to_tag("greeting", func, "Hello World")
 bot.greet()
-bot.prompt_and_respond()
+for i in range(3):
+    bot.prompt_and_respond()
+    print("====================================================")

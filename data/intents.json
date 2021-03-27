@@ -7,37 +7,37 @@
     {"tag": "goodbye",
      "patterns": ["Bye", "See you later", "Goodbye", "cya", "See ya", "See you", "Have a good day", "Have a good night"],
      "replies": ["See you later, thanks for visiting", "Have a nice day", "Bye! Come back again soon."],
-     "reply_or_act": "both"
+     "reply_or_act": "reply"
     },
     {"tag": "thanks",
      "patterns": ["Thanks", "Thank you", "That's helpful", "merci", "jazaakallah", "jazakallah"],
      "replies": ["Happy to help!", "Any time!", "My pleasure", "You're welcome", "No problem"],
-     "reply_or_act": "both"
+     "reply_or_act": "reply"
     },
     {"tag": "hours",
      "patterns": ["What hours are you open?", "What are your hours?", "When are you open?" ],
      "replies": ["We're open every day 9am-9pm", "Our hours are 9am-9pm every day"],
-     "reply_or_act": "both"
+     "reply_or_act": "reply"
     },
     {"tag": "payments",
      "patterns": ["Do you take credit cards?", "Do you accept Mastercard?", "Are you cash only?" ],
      "replies": ["We accept VISA, Mastercard and AMEX", "We accept most major credit cards"],
-     "reply_or_act": "both"
+     "reply_or_act": "reply"
     },
     {"tag": "opentoday",
      "patterns": ["Are you open today?", "When do you open today?", "What are your hours today?"],
      "replies": ["We're open every day from 9am-9pm", "Our hours are 9am-9pm every day"],
-     "reply_or_act": "both"
+     "reply_or_act": "reply"
     },
     {"tag": "age",
     "patterns": ["how old", "how old are you?", "How old is breeze?", "what is your age?", "age?"],
     "replies": ["I am 21 years old", "21 years old", "21 years"],
-    "reply_or_act": "both"
+    "reply_or_act": "reply"
     },
     {"tag": "name",
     "patterns": ["your name", "What is your name?", "What should I call you?", "Whats your name?", "Who are you?",
                  "Can you tell me your name?", "What are you called?"],
     "replies": ["My name is Breeze", "You can call me Breeze", "Breeze", "It is Breeze", "I am Breeze"],
-    "reply_or_act": "both"
+    "reply_or_act": "reply"
     }
 ]}
