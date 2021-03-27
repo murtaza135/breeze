@@ -39,5 +39,10 @@
                  "Can you tell me your name?", "What are you called?"],
     "replies": ["My name is Breeze", "You can call me Breeze", "Breeze", "It is Breeze", "I am Breeze"],
     "reply_or_act": "reply"
+    },
+    {"tag": "youtube",
+    "patterns": ["youtube", "open youtube", "open up youtube", "load youtube"],
+    "replies": ["Here you go!"],
+    "reply_or_act": "both"
     }
 ]}

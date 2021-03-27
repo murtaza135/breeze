@@ -1,3 +1,4 @@
+from typing import Callable
 import random
 import time
 import webbrowser
@@ -27,14 +28,15 @@ class Chatbot:
     IGNORE_LETTERS = [char for char in string.punctuation] + ["'s"]
     
     
-    def __init__(self, name: str = "Chatbot", error_threshold: float = 0.7) -> None:
+    def __init__(self, intents_file: str, name: str = "Chatbot", error_threshold: float = 0.7) -> None:
         self.name = name
+        self._model = None
+        self._intents_file = intents_file
         self._intents = None
         self._actions = {}
         self._tags = set()
         self._words = []
         self._tags_to_words = []
-        self._model = None
         self.error_threshold = error_threshold
         
         self.no_understanding_messages = [
@@ -47,12 +49,16 @@ class Chatbot:
         return self._model
     
     @property
-    def tags(self) -> list:
-        return self._tags
+    def intents(self) -> list:
+        return self._intents
     
     @property
     def actions(self) -> dict:
         return self._actions
+    
+    @property
+    def tags(self) -> list:
+        return self._tags
     
     @property
     def error_threshold(self) -> float:
@@ -66,15 +72,15 @@ class Chatbot:
             raise ValueError("The threshold value must lie between 0 and 1, inclusive")
     
     
-    def train(self, intents_file: str,
-              optimizer: Optimizer = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True),
-              loss: str = "categorical_crossentropy", epochs: int = 200, batch_size: int = 5):
-        self.update_data_using_intents_file(intents_file)
+    def train(self, optimizer: Optimizer = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True),
+              loss: str = "categorical_crossentropy", epochs: int = 200,
+              batch_size: int = 5) -> None:
+        self.update_data()
         X_train, y_train = self._create_training_data()
         self._train_model(X_train, y_train, optimizer, loss, epochs, batch_size)
     
-    def update_data_using_intents_file(self, intents_file: str) -> None:
-        self._load_intents(intents_file)
+    def update_data(self) -> None:
+        self._load_intents(self._intents_file)
         self._extract_words_and_tags()
         self._update_tags_in_actions_mapping()
     
@@ -191,46 +197,31 @@ class Chatbot:
         return chatbot
     
     
-    def greet(self) -> None:
-        reply = self._select_reply("greeting")
-        self.speak("Hello, how can I help you?")
-    
     def prompt_and_respond(self) -> None:
         message = self.get_user_speech()
-        print(f"Me: {message}")
-        self.respond(message)
+        tag = self.predict_tag(message)
+        reply = self.get_reply(tag)
+        action = self.get_action(tag)
+        reply_or_act_value = self._get_reply_or_act_value(tag)
+        self.respond(reply, action, reply_or_act_value)
         
     def get_user_speech(self) -> str:
         recogniser = sr.Recognizer()
         with sr.Microphone() as source:
             audio = recogniser.listen(source)
-            speech = ""
             try:
                 speech = recogniser.recognize_google(audio_data=audio)
             except sr.UnknownValueError:
-                speech = "Sorry, I did not get that"
+                speech = None
             except sr.RequestError:
-                speech = "Sorry, my speech service is down"
+                speech = None
+        print(f"Me: {speech}") # REMOVE
         return speech
+    
+    def predict_tag(self, message: str) -> str:
+        if message is None:
+            return None
         
-    def respond(self, message: str) -> None:
-        tag = self._predict_tag(message)
-        
-        if tag is not None:
-            reply_or_act = self._get_reply_or_act_key(tag)
-            if reply_or_act == "reply":
-                reply = self._select_reply(tag)
-                self.speak(reply)
-            elif reply_or_act == "act":
-                self._act(tag)
-            else:
-                reply = self._select_reply(tag)
-                self._act(tag, reply)
-        else:
-            reply = self._select_no_understanding_reply()
-            self.speak(reply)
-            
-    def _predict_tag(self, message: str) -> str:
         bag = self._bag_of_words(message)
         result = self.model.predict(bag.reshape(1,-1))[0]
         if result.max() > self._error_threshold:
@@ -249,14 +240,7 @@ class Chatbot:
                     if word not in Chatbot.IGNORE_LETTERS]
         return word_list
     
-    
-    def _get_reply_or_act_key(self, tag: str) -> str:
-        for intent in self._intents:
-            if intent["tag"] == tag:
-                return intent["reply_or_act"]
-        return None
-    
-    def _select_reply(self, tag: str) -> str:
+    def get_reply(self, tag: str) -> str:
         if tag is not None:
             for intent in self._intents:
                 if intent["tag"] == tag:
@@ -265,19 +249,37 @@ class Chatbot:
             return random.choice(self.no_understanding_messages)
         else:
             return "Sorry, I did not get that"
-        
-    def _select_no_understanding_reply(self) -> str:
-        if self.no_understanding_messages:
-            return random.choice(self.no_understanding_messages)
+    
+    def get_action(self, tag: str):
+        if tag is not None:
+            return self._actions[tag]
         else:
-            return "Sorry, I did not get that"
+            return None
+        
+    def _get_reply_or_act_value(self, tag: str) -> str:
+        for intent in self._intents:
+            if intent["tag"] == tag:
+                return intent["reply_or_act"]
+        return None
     
+    def respond(self, reply: str, action: Callable, reply_or_act_value: str) -> None:
+        if reply_or_act_value == "reply":
+            self.speak(reply)
+        elif reply_or_act_value == "act":
+            self.act(action)
+        else:
+            self.act_and_speak(action, reply)
+            
     
-    def _act(self, tag: str, message: str = None) -> None:
-        action = self._actions[tag]
-        if action:
-            if message is not None:
-                self.speak(message)
+    def act_and_speak(self, action: Callable, speech: str) -> None:
+        if action is not None:
+            action()
+            self.speak(speech)
+        else:
+            self.speak("Sorry, I could not perform that action")
+    
+    def act(self, action: Callable, message: str = None) -> None:
+        if action is not None:
             action()
         else:
             self.speak("Sorry, I could not perform that action")
@@ -296,3 +298,10 @@ class Chatbot:
             raise KeyError(f"{tag} does not exist")
         
         self._actions[tag] = lambda: callback(*args, **kwargs)
+        
+        
+    def wake():
+        pass
+    
+    def run():
+        pass

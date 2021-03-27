@@ -1,7 +1,8 @@
 from chatbot import Chatbot
+import webbrowser
 
-# bot = Chatbot("Test")
-# bot.train("data/intents.json")
+# bot = Chatbot("data/intents.json", "Test")
+# bot.train()
 # bot.save("models")
 # print(bot.model)
 # print(bot._intents)
@@ -19,12 +20,13 @@ from chatbot import Chatbot
 # print(bot.model)
 # print(bot._intents)
 
-def func(message):
-    print(message)
+def youtube():
+    url = "https://www.youtube.com/"
+    webbrowser.get().open(url)
 
 bot = Chatbot.load_chatbot("models/Test")
-bot.map_function_to_tag("greeting", func, "Hello World")
-bot.greet()
+bot.map_function_to_tag("youtube", youtube)
+bot.speak("Hello, how can I help you?")
 for i in range(3):
     bot.prompt_and_respond()
     print("====================================================")
