@@ -39,6 +39,8 @@ class Chatbot:
         self._tags_to_words = []
         self.error_threshold = error_threshold
         
+        # TODO somehow itnegrate these messages into an external file
+        # preferably the intents.json file
         self.no_understanding_messages = [
             "Sorry, I could not understand you",
             "Could you say that again please?"
@@ -80,12 +82,12 @@ class Chatbot:
         self._train_model(X_train, y_train, optimizer, loss, epochs, batch_size)
     
     def update_data(self) -> None:
-        self._load_intents(self._intents_file)
+        self._load_intents()
         self._extract_words_and_tags()
         self._update_tags_in_actions_mapping()
     
-    def _load_intents(self, intents_file: str) -> None:
-        with open(intents_file, "r") as f:
+    def _load_intents(self) -> None:
+        with open(self._intents_file, "r") as f:
             self._intents = json.load(f)["intents"]
         
         if not self._intents:
